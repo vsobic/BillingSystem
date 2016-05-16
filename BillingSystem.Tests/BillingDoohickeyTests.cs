@@ -18,22 +18,38 @@ namespace BillingSystem.Tests
         [Fact]
         public void CustomerWhoDoesNotHaveSubscriptionDoesNotGetCharged()
         {
-            // Source of customers
-            // Service for charging customers
             var repo = new Mock<ICustomerRepository>();
             var charger = new Mock<ICreditCardCharger>();
-            var customer = new Customer(); // What does it mean to not have a subscription?
+            var customer = new Customer();
+            repo.Setup(r => r.Customers)
+                .Returns(new Customer[] { customer });
             var thing = new BillingDoohickey(repo.Object,charger.Object);
 
             thing.ProcessMonth(2011,8);
 
             charger.Verify(c => c.ChargeCustomer(customer), Times.Never());
         }
-        
+
+        [Fact]
+        public void CustomerWithSubscriptionThatIsExpiredGetsCharged()
+        {
+            var repo = new Mock<ICustomerRepository>();
+            var charger = new Mock<ICreditCardCharger>();
+            var customer = new Customer { Subscribed = true };
+            repo.Setup(r => r.Customers)
+                .Returns(new Customer[] { customer });
+            var thing = new BillingDoohickey(repo.Object, charger.Object);
+
+            thing.ProcessMonth(2011, 8);
+
+            charger.Verify(c => c.ChargeCustomer(customer), Times.Once());
+        }
+
     }
 
     public interface ICustomerRepository
     {
+        IEnumerable<Customer> Customers { get; }
     }
 
     public interface ICreditCardCharger
@@ -43,6 +59,7 @@ namespace BillingSystem.Tests
 
     public class Customer
     {
+        public bool Subscribed { get; set; }
     }
 
     public class BillingDoohickey
@@ -58,6 +75,9 @@ namespace BillingSystem.Tests
 
         public void ProcessMonth(int year, int month)
         {
+            var customer = repo.Customers.Single();
+            if(customer.Subscribed)
+                charger.ChargeCustomer(customer);
         }
     }
 }
